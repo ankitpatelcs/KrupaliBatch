@@ -32,3 +32,6 @@ def register(request):
         else:
             return render(request,'register.html',{'msg':'Passwords did not match.!'})
     return render(request,'register.html')
+
+def contact(request):
+    return render(request,'contact.html')
