@@ -1,8 +1,8 @@
+from itertools import product
 from urllib import request
 from django.shortcuts import render,redirect
 
-import seller
-from seller.models import Seller
+from seller.models import *
 
 # Create your views here.
 
@@ -21,4 +21,22 @@ def seller_login(request):
     return render(request,'seller-login.html')
 
 def seller_index(request):
-    return redirect(request,'seller-index.html')
+    return render(request,'seller-index.html')
+
+def seller_addproduct(request):
+    sellerobj=Seller.objects.get(email=request.session['email'])
+    if request.method=='POST':
+        Product.objects.create(
+            name=request.POST["pname"],
+            des=request.POST["desc"],
+            price=request.POST["price"],
+            quantity=request.POST["quantity"],
+            discount=request.POST["discount"],
+            seller=sellerobj
+        )
+    return render(request,'seller-addproduct.html')
+
+def manageproduct(request):
+    sellerobj=Seller.objects.get(email=request.session['email'])
+    pobj= Product.objects.filter(seller=sellerobj)
+    return render(request,'seller-manageproduct.html',{'productlist':pobj})
