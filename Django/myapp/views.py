@@ -1,6 +1,7 @@
 from django.shortcuts import render,redirect
 
-from myapp.models import User
+from myapp.models import *
+from seller.models import *
 
 # Create your views here.
 
@@ -35,3 +36,15 @@ def register(request):
 
 def contact(request):
     return render(request,'contact.html')
+
+def products(request):
+    plist = Product.objects.all()
+    for item in plist:
+        item.discountedprice=item.price-(item.price*item.discount/100)
+
+    return render(request,'products.html',{'productlist':plist})
+
+def single(request,pid):
+    pobj = Product.objects.get(id=pid)
+    pobj.discountedprice=pobj.price-(pobj.price*pobj.discount/100)
+    return render(request,'single.html',{'pobj':pobj})

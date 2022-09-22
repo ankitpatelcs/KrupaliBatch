@@ -7,4 +7,6 @@ urlpatterns = [
     path('login/',views.login,name='login'),
     path('register/',views.register,name='register'),
     path('contact/',views.contact,name='contact'),
+    path('products/',views.products,name='products'),
+    path('single/<int:pid>',views.single,name='single'),
 ]
