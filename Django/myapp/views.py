@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-
+from django.http import JsonResponse
 from myapp.models import *
 from seller.models import *
 
@@ -48,3 +48,15 @@ def single(request,pid):
     pobj = Product.objects.get(id=pid)
     pobj.discountedprice=pobj.price-(pobj.price*pobj.discount/100)
     return render(request,'single.html',{'pobj':pobj})
+
+def addtocart(request):
+    pid=request.GET['pid']
+    userobj = User.objects.get(email=request.session['email'])
+    pobj = Product.objects.get(id=pid)
+
+    Cart.objects.create(
+        product=pobj,
+        user=userobj,
+        quantity=1
+    )
+    return JsonResponse({'msg':'Employee Added'})
