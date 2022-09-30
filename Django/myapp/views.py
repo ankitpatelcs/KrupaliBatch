@@ -60,3 +60,32 @@ def addtocart(request):
         quantity=1
     )
     return JsonResponse({'msg':'Employee Added'})
+
+def cart(request):
+    userobj = User.objects.get(email=request.session['email'])
+    cartitems=Cart.objects.filter(user=userobj)
+
+    carttotal=0
+    for item in cartitems:
+        dp=item.product.price-(item.product.price*item.product.discount/100)
+        item.product.discountedprice=dp*item.quantity
+        carttotal+=item.product.discountedprice
+
+    return render(request,'cart.html',{'cartitems':cartitems,'carttotal':carttotal})
+
+def checkout(request):
+    userobj = User.objects.get(email=request.session['email'])
+    orderobj = Order.objects.create(
+        user=userobj,
+        order_status='Confirmed'
+    )
+
+    cartdata=Cart.objects.filter(user=userobj)
+    for item in cartdata:
+        OrderDetails.objects.create(
+            product=item.product,
+            quantity=item.quantity,
+            order=orderobj
+        )
+
+    return render(request,'success.html')
