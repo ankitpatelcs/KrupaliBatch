@@ -2,6 +2,10 @@ from django.shortcuts import render,redirect
 from django.http import JsonResponse
 from myapp.models import *
 from seller.models import *
+from django.conf import settings
+import razorpay
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponseBadRequest
 
 # Create your views here.
 
@@ -73,7 +77,10 @@ def cart(request):
 
     return render(request,'cart.html',{'cartitems':cartitems,'carttotal':carttotal})
 
-def checkout(request):
+razorpay_client = razorpay.Client(
+    auth=(settings.RAZOR_KEY_ID, settings.RAZOR_KEY_SECRET))
+
+def pay(request):
     userobj = User.objects.get(email=request.session['email'])
     orderobj = Order.objects.create(
         user=userobj,
@@ -81,6 +88,10 @@ def checkout(request):
     )
 
     cartdata=Cart.objects.filter(user=userobj)
+    s = 0
+    for i in cartdata:
+        s +=  int(i.product.price)
+    
     for item in cartdata:
         OrderDetails.objects.create(
             product=item.product,
@@ -88,4 +99,71 @@ def checkout(request):
             order=orderobj
         )
 
-    return render(request,'success.html')
+    currency = 'INR'
+    amount = s*100  # Rs. 200
+ 
+    # Create a Razorpay Order
+    razorpay_order = razorpay_client.order.create(dict(amount=amount,
+                                                       currency=currency,
+                                                       payment_capture='0'))
+ 
+    # order id of newly created order.
+    razorpay_order_id = razorpay_order['id']
+    callback_url = f'paymenthandler/{userobj.id}'    # callback url with order id
+ 
+    # we need to pass these details to frontend.
+    context = {}
+    context['razorpay_order_id'] = razorpay_order_id
+    context['razorpay_merchant_key'] = settings.RAZOR_KEY_ID
+    context['razorpay_amount'] = amount
+    context['currency'] = currency
+    context['callback_url'] = callback_url
+
+    return render(request,'pay.html',context=context)
+
+@csrf_exempt
+def paymenthandler(request,oid):
+ 
+    # only accept POST request.
+    if request.method == "POST":
+        try:
+            order = Order.objects.get(id = oid)
+            # get the required parameters from post request.
+            payment_id = request.POST.get('razorpay_payment_id', '')
+            razorpay_order_id = request.POST.get('razorpay_order_id', '')
+            signature = request.POST.get('razorpay_signature', '')
+            params_dict = {
+                'razorpay_order_id': razorpay_order_id,
+                'razorpay_payment_id': payment_id,
+                'razorpay_signature': signature
+            }
+ 
+            # verify the payment signature.
+            result = razorpay_client.utility.verify_payment_signature(
+                params_dict)
+            # if result is None:
+            amount = (order.amount)*100  # Rs. 200
+            try:
+
+                # capture the payemt
+                razorpay_client.payment.capture(payment_id, amount)
+                order.pay_id = payment_id   # payment ID update
+                order.verify = True
+                order.save()
+                # render success page on successful caputre of payment
+                return render(request, 'success.html')
+            except:
+
+                # if there is an error while capturing payment.
+                return render(request, 'fail.html')
+            # else:
+ 
+            #     # if signature verification fails.
+            #     return render(request, 'paymentfail.html')
+        except:
+ 
+            # if we don't find the required parameters in POST data
+            return HttpResponseBadRequest()
+    else:
+       # if other than POST request is made.
+        return HttpResponseBadRequest()
